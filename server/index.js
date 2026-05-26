@@ -6,8 +6,8 @@ const app = express();
 app.use(express.json({ limit: '50kb' }));
 
 const MODELS = {
-  quick:    { id: 'claude-haiku-4-5-20251001',   maxTokens: 1000 },
-  detailed: { id: 'claude-sonnet-4-20250514',    maxTokens: 2000 },
+  quick:    { id: 'claude-haiku-4-5',  maxTokens: 1000 },
+  detailed: { id: 'claude-sonnet-4-5', maxTokens: 2000 },
 };
 
 const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search' };
@@ -27,16 +27,20 @@ app.post('/api/stream', async (req, res) => {
   const { id: model, maxTokens } = MODELS[mode] ?? MODELS.detailed;
   const tools = useWebSearch ? [WEB_SEARCH_TOOL] : [];
 
+  // Only send the web-search beta header when actually using web search.
+  // Sending it on tool-less requests causes Anthropic to return 500.
+  const headers = {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+    ...(tools.length > 0 && { 'anthropic-beta': 'web-search-2025-03-05' }),
+  };
+
   let upstream;
   try {
     upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05',
-        'content-type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
@@ -51,7 +55,15 @@ app.post('/api/stream', async (req, res) => {
 
   if (!upstream.ok) {
     const body = await upstream.text();
-    return res.status(upstream.status).send(body);
+    // Log the real Anthropic error so it's visible in the server terminal
+    console.error(`Anthropic error ${upstream.status} [${model}]:`, body.slice(0, 400));
+    // Try to extract a readable message and return it as JSON
+    let message = `Anthropic error ${upstream.status}`;
+    try {
+      const parsed = JSON.parse(body);
+      message = parsed.error?.message ?? message;
+    } catch {}
+    return res.status(upstream.status).json({ error: message });
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
