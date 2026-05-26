@@ -21,6 +21,8 @@ export async function streamSection({ prompt, mode, useWebSearch, onChunk, onCom
     let buffer = '';
     let fullText = '';
     const textBlockIndices = new Set();
+    const sources = [];
+    const seenUrls = new Set();
 
     while (true) {
       const { done, value } = await reader.read();
@@ -38,8 +40,23 @@ export async function streamSection({ prompt, mode, useWebSearch, onChunk, onCom
         try {
           const event = JSON.parse(raw);
 
-          if (event.type === 'content_block_start' && event.content_block?.type === 'text') {
-            textBlockIndices.add(event.index);
+          if (event.type === 'content_block_start') {
+            const block = event.content_block;
+
+            if (block?.type === 'text') {
+              textBlockIndices.add(event.index);
+            }
+
+            // Web search results arrive as tool_result blocks containing
+            // an array of web_search_result items, each with url + title
+            if (block?.type === 'tool_result' && Array.isArray(block.content)) {
+              for (const item of block.content) {
+                if (item.type === 'web_search_result' && item.url && !seenUrls.has(item.url)) {
+                  seenUrls.add(item.url);
+                  sources.push({ url: item.url, title: item.title || item.url });
+                }
+              }
+            }
           }
 
           if (
@@ -56,7 +73,7 @@ export async function streamSection({ prompt, mode, useWebSearch, onChunk, onCom
       }
     }
 
-    onComplete(fullText);
+    onComplete(fullText, sources);
   } catch (err) {
     onError(err.message || 'Network error');
   }

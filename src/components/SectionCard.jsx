@@ -94,7 +94,40 @@ function LoadingPulse() {
   );
 }
 
-export default function SectionCard({ id, icon, title, status, text, error }) {
+function hostname(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return url; }
+}
+
+function SourcesFooter({ sources }) {
+  if (!sources?.length) return null;
+  return (
+    <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/60">
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Sources</p>
+      <div className="flex flex-wrap gap-1.5">
+        {sources.map((s, i) => (
+          <a
+            key={i}
+            href={s.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={s.title}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200 bg-white text-xs text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-colors max-w-[240px]"
+          >
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${hostname(s.url)}&sz=16`}
+              className="w-3.5 h-3.5 flex-shrink-0"
+              alt=""
+            />
+            <span className="truncate">{s.title || hostname(s.url)}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function SectionCard({ id, icon, title, status, text, sources, error }) {
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
@@ -170,6 +203,8 @@ export default function SectionCard({ id, icon, title, status, text, error }) {
           </div>
         )}
       </div>
+
+      {isDone && <SourcesFooter sources={sources} />}
     </div>
   );
 }

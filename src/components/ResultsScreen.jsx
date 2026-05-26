@@ -11,7 +11,7 @@ function buildInitialSections(savedRun) {
   const s = {};
   ALL_SECTIONS.forEach(sec => {
     const saved = savedRun?.sections?.[sec.id];
-    s[sec.id] = saved ?? { status: 'pending', text: '', error: null };
+    s[sec.id] = saved ?? { status: 'pending', text: '', sources: [], error: null };
   });
   return s;
 }
@@ -103,8 +103,8 @@ export default function ResultsScreen({ config, savedRun, onReset, onHistory }) 
         Object.entries(sections).map(([id, s]) => [
           id,
           s.status === 'done' || s.status === 'error'
-            ? { text: s.text, status: s.status, error: s.error }
-            : { text: '', status: 'pending', error: null },
+            ? { text: s.text, sources: s.sources ?? [], status: s.status, error: s.error }
+            : { text: '', sources: [], status: 'pending', error: null },
         ])
       ),
     });
@@ -137,10 +137,10 @@ export default function ResultsScreen({ config, savedRun, onReset, onHistory }) 
               },
             }));
           },
-          onComplete: () => {
+          onComplete: (_, sources) => {
             setSections(prev => ({
               ...prev,
-              [sec.id]: { ...prev[sec.id], status: 'done' },
+              [sec.id]: { ...prev[sec.id], status: 'done', sources: sources ?? [] },
             }));
           },
           onError: msg => {
@@ -257,6 +257,7 @@ export default function ResultsScreen({ config, savedRun, onReset, onHistory }) 
               title={sec.title}
               status={sections[sec.id]?.status ?? 'pending'}
               text={sections[sec.id]?.text ?? ''}
+              sources={sections[sec.id]?.sources ?? []}
               error={sections[sec.id]?.error}
             />
           ))}
@@ -276,6 +277,7 @@ export default function ResultsScreen({ config, savedRun, onReset, onHistory }) 
               title={sec.title}
               status={sections[sec.id]?.status ?? 'pending'}
               text={sections[sec.id]?.text ?? ''}
+              sources={sections[sec.id]?.sources ?? []}
               error={sections[sec.id]?.error}
             />
           ))}
